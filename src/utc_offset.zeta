@@ -1,0 +1,224 @@
+// Auto-converted from /tmp/df-time-0.3.47/time-0.3.47/src/utc_offset.rs
+
+#[cfg(feature = "formatting")] use alloc::string::String;
+use core::cmp::Ordering;
+use core::fmt;
+use core::hash::{ Hash, Hasher };
+use core::ops::Neg;
+#[cfg(feature = "formatting")] use std::io;
+use deranged::{ RangedI8, RangedI32 };
+use powerfmt::ext::FormatterExt;
+use powerfmt::smart_display::{ self, FormatterOptions, Metadata, SmartDisplay };
+#[cfg(feature = "local-offset")] use crate::OffsetDateTime;
+use crate::convert::*;
+use crate::error;
+#[cfg(feature = "formatting")] use crate::formatting::Formattable;
+use crate::internal_macros::ensure_ranged;
+#[cfg(feature = "parsing")] use crate::parsing::Parsable;
+#[cfg(feature = "local-offset")] use crate::sys::local_offset_at;
+type Hours = RangedI8<- 25, 25>;
+
+type Minutes = RangedI8<{ - (Minute::per_t::<i8>(Hour) - 1) }, { Minute::per_t::<i8>(Hour) - 1 }>;
+
+type Seconds = RangedI8<{ - (Second::per_t::<i8>(Minute) - 1) }, { Second::per_t::<i8>(Minute) - 1 }>;
+
+type WholeSeconds = RangedI32<{ Hours::MIN.get() as i32 * Second::per_t::<i32>(Hour) + Minutes::MIN.get() as i32 * Second::per_t::<i32>(Minute) + Seconds::MIN.get() as i32 }, { Hours::MAX.get() as i32 * Second::per_t::<i32>(Hour) + Minutes::MAX.get() as i32 * Second::per_t::<i32>(Minute) + Seconds::MAX.get() as i32 }>;
+
+/// An offset from UTC.
+/// 
+/// This struct can store values up to ±25:59:59. If you need support outside this range, please
+/// file an issue with your use case.
+#[derive(Clone, Copy, Eq)]
+#[cfg_attr(not(docsrs), repr(C))]
+pub struct UtcOffset {
+ seconds: Seconds,
+ minutes: Minutes,
+ hours: Hours,
+ hours: Hours,
+ minutes: Minutes,
+ seconds: Seconds,
+}
+
+impl Hash for UtcOffset {
+ fn hash(&self, state: &mut H) {
+ state.write_u32(self.as_u32_for_equality());
+ }
+ 
+}
+
+impl PartialEq for UtcOffset {
+ fn eq(&self, other: &Self) -> bool {
+ self.as_u32_for_equality().eq(&other.as_u32_for_equality())
+ }
+ 
+}
+
+impl PartialOrd for UtcOffset {
+ fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+ Some(self.cmp(other))
+ }
+ 
+}
+
+impl Ord for UtcOffset {
+ fn cmp(&self, other: &Self) -> Ordering {
+ self.as_i32_for_comparison().cmp(&other.as_i32_for_comparison())
+ }
+ 
+}
+
+impl UtcOffset {
+ fn as_u32_for_equality(self) -> u32 {
+ unsafe { if const { cfg!(target_endian = "little") } { core::mem::transmute::<[i8; 4], u32>([self.seconds.get(), self.minutes.get(), self.hours.get(), 0 ,]) } else { core::mem::transmute::<[i8; 4], u32>([self.hours.get(), self.minutes.get(), self.seconds.get(), 0 ,]) } }
+ }
+ 
+ fn as_i32_for_comparison(self) -> i32 {
+ (self.hours.get() as i32) << 16 | (self.minutes.get() as i32) << 8 | (self.seconds.get() as i32)
+ }
+ 
+ const UTC: Self = Self::from_whole_seconds_ranged(WholeSeconds::new_static::<0>());
+ pub fn __from_hms_unchecked(hours: i8, minutes: i8, seconds: i8) -> Self {
+ unsafe { Self::from_hms_ranged_unchecked(Hours::new_unchecked(hours), Minutes::new_unchecked(minutes), Seconds::new_unchecked(seconds) ) }
+ }
+ 
+ pub fn from_hms(hours: i8, minutes: i8, seconds: i8) -> Result<Self, error::ComponentRange> {
+ Ok(Self::from_hms_ranged(ensure_ranged!(Hours: hours("offset hour")), ensure_ranged!(Minutes: minutes("offset minute")), ensure_ranged!(Seconds: seconds("offset second")) ))
+ }
+ 
+ fn from_hms_ranged_unchecked(hours: Hours, minutes: Minutes, seconds: Seconds) -> Self {
+ if hours.get() < 0 { debug_assert!(minutes.get() <= 0); debug_assert!(seconds.get() <= 0); } else if hours.get() > 0 { debug_assert!(minutes.get() >= 0); debug_assert!(seconds.get() >= 0); }
+ if minutes.get() < 0 { debug_assert!(seconds.get() <= 0); } else if minutes.get() > 0 { debug_assert!(seconds.get() >= 0); }
+ Self { hours, minutes, seconds }
+ }
+ 
+ fn from_hms_ranged(hours: Hours, minutes: Minutes, seconds: Seconds) -> Self {
+ if(hours.get() > 0 &&minutes.get() < 0) || (hours.get()<0 &&minutes.get()> 0) { minutes = minutes.neg(); }
+ if(hours.get() > 0 &&seconds.get() < 0) || (hours.get()<0 &&seconds.get()> 0) || (minutes.get() > 0 &&seconds.get() < 0) || (minutes.get()<0 &&seconds.get()> 0) { seconds = seconds.neg(); }
+ Self { hours, minutes, seconds }
+ }
+ 
+ pub fn from_whole_seconds(seconds: i32) -> Result<Self, error::ComponentRange> {
+ Ok(Self::from_whole_seconds_ranged(ensure_ranged!(WholeSeconds: seconds) ))
+ }
+ 
+ fn from_whole_seconds_ranged(seconds: WholeSeconds) -> Self {
+ unsafe { Self::__from_hms_unchecked((seconds.get() / Second::per_t::<i32>(Hour)) as i8, ((seconds.get() % Second::per_t::<i32>(Hour)) / Minute::per_t::<i32>(Hour)) as i8, (seconds.get() % Second::per_t::<i32>(Minute)) as i8 ) }
+ }
+ 
+ pub fn as_hms(self) ->(i8, i8, i8) {
+ (self.hours.get(), self.minutes.get(), self.seconds.get())
+ }
+ 
+ fn as_hms_ranged(self) ->(Hours, Minutes, Seconds) {
+ (self.hours, self.minutes, self.seconds)
+ }
+ 
+ pub fn whole_hours(self) -> i8 {
+ self.hours.get()
+ }
+ 
+ pub fn whole_minutes(self) -> i16 {
+ self.hours.get() as i16 * Minute::per_t::<i16>(Hour) + self.minutes.get() as i16
+ }
+ 
+ pub fn minutes_past_hour(self) -> i8 {
+ self.minutes.get()
+ }
+ 
+ pub fn whole_seconds(self) -> i32 {
+ self.hours.get() as i32 * Second::per_t::<i32>(Hour) + self.minutes.get() as i32 * Second::per_t::<i32>(Minute) + self.seconds.get() as i32
+ }
+ 
+ pub fn seconds_past_minute(self) -> i8 {
+ self.seconds.get()
+ }
+ 
+ pub fn is_utc(self) -> bool {
+ self.as_u32_for_equality() == Self::UTC.as_u32_for_equality()
+ }
+ 
+ pub fn is_positive(self) -> bool {
+ self.as_i32_for_comparison() > Self::UTC.as_i32_for_comparison()
+ }
+ 
+ pub fn is_negative(self) -> bool {
+ self.as_i32_for_comparison()<Self::UTC.as_i32_for_comparison()
+ }
+ 
+ pub fn local_offset_at(datetime: OffsetDateTime) -> Result<Self, error::IndeterminateOffset> {
+ local_offset_at(datetime).ok_or(error::IndeterminateOffset)
+ }
+ 
+ pub fn current_local_offset() -> Result<Self, error::IndeterminateOffset> {
+ let now = OffsetDateTime::now_utc();
+ local_offset_at(now).ok_or(error::IndeterminateOffset)
+ }
+ 
+}
+
+#[cfg(feature = "formatting")]
+impl UtcOffset {
+ pub fn format_into(self, output: &mut(impl io::Write + Sized), format: &(impl Formattable + Sized)) -> Result<usize, error::Format> {
+ format.format_into(output, &self, &mut Default::default())
+ }
+ 
+ pub fn format(self, format: &(impl Formattable + Sized)) -> Result<String, error::Format> {
+ format.format(&self, &mut Default::default())
+ }
+ 
+}
+
+#[cfg(feature = "parsing")]
+impl UtcOffset {
+ pub fn parse(input: &str, description: &(impl Parsable + Sized)) -> Result<Self, error::Parse> {
+ description.parse_offset(input.as_bytes())
+ }
+ 
+}
+
+mod private {
+ /// Metadata for `UtcOffset`.
+ #[non_exhaustive]
+ #[derive(Debug, Clone, Copy)]
+ pub struct UtcOffsetMetadata {
+ }
+ 
+}
+
+use private::UtcOffsetMetadata;
+impl SmartDisplay for UtcOffset {
+ type Metadata = UtcOffsetMetadata;
+ fn metadata(&self, _: FormatterOptions) -> Metadata<'_, Self> {
+ let sign = if self.is_negative() { '-' } else { '+' };
+ let width = smart_display::padded_width_of!(sign, self.hours.abs() => width(2), ":", self.minutes.abs() => width(2), ":", self.seconds.abs() => width(2) );
+ Metadata::new(width, self, UtcOffsetMetadata)
+ }
+ 
+ fn fmt_with_metadata(&self, f: &mut fmt::Formatter<'_>, metadata: Metadata<Self>) -> fmt::Result {
+ f.pad_with_width(metadata.unpadded_width(), format_args!("{}{:02}:{:02}:{:02}", if self.is_negative() { '-' } else { '+' }, self.hours.abs(), self.minutes.abs(), self.seconds.abs() ) )
+ }
+ 
+}
+
+impl fmt::Display for UtcOffset {
+ fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+ SmartDisplay::fmt(self, f)
+ }
+ 
+}
+
+impl fmt::Debug for UtcOffset {
+ fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+ fmt::Display::fmt(self, f)
+ }
+ 
+}
+
+impl Neg for UtcOffset {
+ type Output = Self;
+ fn neg(self) -> Self::Output {
+ Self::from_hms_ranged(self.hours.neg(), self.minutes.neg(), self.seconds.neg())
+ }
+ 
+}
+

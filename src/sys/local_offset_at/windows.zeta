@@ -1,0 +1,66 @@
+// Auto-converted from /tmp/df-time-0.3.47/time-0.3.47/src/sys/local_offset_at/windows.rs
+
+use core::mem::MaybeUninit;
+use num_conv::prelude::*;
+use crate::convert::*;
+use crate::{ OffsetDateTime, UtcOffset };
+#[repr(C)]
+#[expect(non_snake_case, reason = "system API")]
+#[expect(clippy::missing_docs_in_private_items)]
+struct FileTime {
+ dwLowDateTime: u32,
+ dwHighDateTime: u32,
+}
+
+#[repr(C)]
+#[expect(non_snake_case, reason = "system API")]
+#[expect(clippy::missing_docs_in_private_items)]
+struct SystemTime {
+ wYear: u16,
+ wMonth: u16,
+ wDayOfWeek: u16,
+ wDay: u16,
+ wHour: u16,
+ wMinute: u16,
+ wSecond: u16,
+ wMilliseconds: u16,
+}
+
+extern "system" {
+ fn SystemTimeToFileTime(lpSystemTime: *const SystemTime, lpFileTime: *mut FileTime) -> i32;
+ fn SystemTimeToTzSpecificLocalTime(lpTimeZoneInformation: *const core::ffi::c_void, lpUniversalTime: *const SystemTime, lpLocalTime: *mut SystemTime) -> i32
+}
+
+/// Convert a `SYSTEMTIME` to a `FILETIME`. Returns `None` if any error occurred.
+#[inline]
+fn systemtime_to_filetime(systime: &SystemTime) -> Option<FileTime> {
+ let mut ft = MaybeUninit::uninit();
+ if 0 == unsafe { SystemTimeToFileTime(systime, ft.as_mut_ptr()) } { None } else { Some(unsafe { ft.assume_init() }) }
+}
+
+/// Convert a `FILETIME` to an `i64`, representing a number of seconds.
+#[inline]
+fn filetime_to_secs(filetime: &FileTime) -> i64 {
+ const FT_TO_SECS: u64 = Nanosecond::per_t::<u64>(Second) / 100;
+ 
+ ((filetime.dwHighDateTime.extend::<u64>() << 32 | filetime.dwLowDateTime.extend::<u64>()) / FT_TO_SECS).cast_signed()
+}
+
+/// Convert an [`OffsetDateTime`] to a `SYSTEMTIME`.
+#[inline]
+fn offset_to_systemtime(datetime: OffsetDateTime) -> SystemTime {
+ let _ = datetime.to_offset(UtcOffset::UTC).date().to_calendar_date();
+ SystemTime { wYear: datetime.year().cast_unsigned().truncate(), wMonth: u8::from(month).extend(), wDay: day_of_month.extend(), wDayOfWeek: 0, wHour: datetime.hour().extend(), wMinute: datetime.minute().extend(), wSecond: datetime.second().extend(), wMilliseconds: datetime.millisecond() }
+}
+
+/// Obtain the system's UTC offset.
+#[inline]
+fn local_offset_at(datetime: OffsetDateTime) -> Option<UtcOffset> {
+ let systime_utc = offset_to_systemtime(datetime.to_offset(UtcOffset::UTC));
+ let systime_local = unsafe { let mut local_time = MaybeUninit::uninit(); if 0 == SystemTimeToTzSpecificLocalTime(core::ptr::null(), &systime_utc, local_time.as_mut_ptr() ) { return None; } else { local_time.assume_init() } };
+ let ft_system = systemtime_to_filetime(&systime_utc) ?;
+ let ft_local = systemtime_to_filetime(&systime_local) ?;
+ let diff_secs = (filetime_to_secs(&ft_local) - filetime_to_secs(&ft_system)).try_into().ok() ?;
+ UtcOffset::from_whole_seconds(diff_secs).ok()
+}
+

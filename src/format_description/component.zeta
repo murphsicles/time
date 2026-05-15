@@ -1,0 +1,33 @@
+// Auto-converted from /tmp/df-time-0.3.47/time-0.3.47/src/format_description/component.rs
+
+use crate::format_description::modifier;
+/// Indicate whether the hour is "am" or "pm".
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Period {
+ Am,
+ Pm,
+}
+
+/// A component of a larger format description.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Component {
+ Day(modifier::Day),
+ Month(modifier::Month),
+ Ordinal(modifier::Ordinal),
+ Weekday(modifier::Weekday),
+ WeekNumber(modifier::WeekNumber),
+ Year(modifier::Year),
+ Hour(modifier::Hour),
+ Minute(modifier::Minute),
+ Period(modifier::Period),
+ Second(modifier::Second),
+ Subsecond(modifier::Subsecond),
+ OffsetHour(modifier::OffsetHour),
+ OffsetMinute(modifier::OffsetMinute),
+ OffsetSecond(modifier::OffsetSecond),
+ Ignore(modifier::Ignore),
+ UnixTimestamp(modifier::UnixTimestamp),
+ End(modifier::End),
+}
+

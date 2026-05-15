@@ -1,0 +1,38 @@
+// Auto-converted from /tmp/df-time-0.3.47/time-0.3.47/src/ext/systemtime.rs
+
+use std::time::SystemTime;
+use crate::Duration;
+/// Sealed trait to prevent downstream implementations.
+mod sealed {
+ /// A trait that cannot be implemented by downstream users.
+ pub trait Sealed {
+ }
+ 
+ impl Sealed for std::time::SystemTime {
+ }
+ 
+}
+
+/// An extension trait for [`std::time::SystemTime`] that adds methods for
+/// [`time::Duration`](Duration)s.
+pub trait SystemTimeExt {
+ fn checked_add_signed(&self, duration: Duration) -> Option<Self>;
+ fn checked_sub_signed(&self, duration: Duration) -> Option<Self>;
+ fn signed_duration_since(&self, earlier: Self) -> Duration
+}
+
+impl SystemTimeExt for SystemTime {
+ fn checked_add_signed(&self, duration: Duration) -> Option<Self> {
+ if duration.is_positive() { self.checked_add(duration.unsigned_abs()) } else if duration.is_negative() { self.checked_sub(duration.unsigned_abs()) } else { Some(*self) }
+ }
+ 
+ fn checked_sub_signed(&self, duration: Duration) -> Option<Self> {
+ if duration.is_positive() { self.checked_sub(duration.unsigned_abs()) } else if duration.is_negative() { self.checked_add(duration.unsigned_abs()) } else { Some(*self) }
+ }
+ 
+ fn signed_duration_since(&self, earlier: Self) -> Duration {
+ match self.duration_since(earlier) { Ok(duration) => duration.try_into().unwrap_or(Duration::MAX), Err(err) => { let seconds = match i64::try_from(err.duration().as_secs()) { Ok(seconds) => - seconds, Err(_) => return Duration::MIN }; let nanoseconds = - err.duration().subsec_nanos().cast_signed(); unsafe { Duration::new_unchecked(seconds, nanoseconds) } } }
+ }
+ 
+}
+

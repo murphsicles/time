@@ -1,0 +1,228 @@
+// Auto-converted from /tmp/df-time-0.3.47/time-0.3.47/src/formatting/component_provider.rs
+
+use core::mem::MaybeUninit;
+use core::num::NonZero;
+use num_conv::prelude::*;
+use crate::format_description::Period;
+use crate::{ Date, Month, OffsetDateTime, PrimitiveDateTime, Time, UtcDateTime, UtcOffset, Weekday };
+/// State used by date-providing types to cache computed values.
+/// 
+/// This is used to avoid redundant computations when multiple date components are almost certainly
+/// going to be requested within the same formatting invocation.
+#[derive(Debug)]
+struct DateState {
+ day: Option<NonZero<u8>>,
+ month: Option<Month>,
+ iso_week: Option<NonZero<u8>>,
+ iso_year_is_initialized: bool,
+ iso_year: MaybeUninit<i32>,
+}
+
+impl Default for DateState {
+ fn default() -> Self {
+ Self { day: Default::default(), month: Default::default(), iso_week: Default::default(), iso_year_is_initialized: Default::default(), iso_year: MaybeUninit::uninit() }
+ }
+ 
+}
+
+macro_rules ! unimplemented_methods { ($ ($ (#[$ meta: meta]) * ($ component: literal) $ name: ident => $ ret: ty;) *) => { $ ($ (#[$ meta]) * #[track_caller] #[expect(unused_variables, reason = "better for auto-generation of method stubs")] fn $ name(&self, state: &mut Self::State) -> $ ret { unimplemented!(concat!("type does not supply ", $ component, " components")) }) * }; }
+macro_rules ! delegate_providers { ($ target: ident { $ ($ method: ident -> $ return: ty) * }) => { $ (#[inline] fn $ method(&self, state: &mut Self::State) -> $ return { ComponentProvider::$ method(&self .$ target(), state) }) * }; ($ target: ident($ state: expr) { $ ($ method: ident -> $ return: ty) * }) => { $ (#[inline] fn $ method(&self, _: &mut Self::State) -> $ return { ComponentProvider::$ method(&self .$ target(), $ state) }) * }; }
+/// A type with the ability to provide date, time, offset, and/or timestamp components on demand.
+/// 
+/// Note that while all methods have a default body, implementations are expected to override the
+/// body for all components that they provide. The default implementation exists solely for
+/// convenience, avoiding the need to specify unprovided components.
+trait ComponentProvider {
+ type State;
+ const SUPPLIES_DATE: bool;
+ const SUPPLIES_TIME: bool;
+ const SUPPLIES_OFFSET: bool;
+ const SUPPLIES_TIMESTAMP: bool
+}
+
+impl ComponentProvider for Time {
+ type State = ();
+ const SUPPLIES_TIME: bool = true;
+ fn hour(&self, _: &mut Self::State) -> u8 {
+ (*self).hour()
+ }
+ 
+ fn minute(&self, _: &mut Self::State) -> u8 {
+ (*self).minute()
+ }
+ 
+ fn period(&self, _: &mut Self::State) -> Period {
+ if(*self).hour()<12 { Period::Am } else { Period::Pm }
+ }
+ 
+ fn second(&self, _: &mut Self::State) -> u8 {
+ (*self).second()
+ }
+ 
+ fn nanosecond(&self, _: &mut Self::State) -> u32 {
+ (*self).nanosecond()
+ }
+ 
+}
+
+impl ComponentProvider for Date {
+ type State = DateState;
+ const SUPPLIES_DATE: bool = true;
+ fn day(&self, state: &mut Self::State) -> u8 {
+ if let Some(day) = state.day { return day.get(); }
+ let _ = (*self).to_calendar_date();
+ state.month = Some(month);
+ state.day = Some(unsafe { NonZero::new_unchecked(day) });
+ day
+ }
+ 
+ fn month(&self, state: &mut Self::State) -> Month {
+ *state.month.get_or_insert_with(| | (*self).month())
+ }
+ 
+ fn ordinal(&self, _: &mut Self::State) -> u16 {
+ (*self).ordinal()
+ }
+ 
+ fn weekday(&self, _: &mut Self::State) -> Weekday {
+ (*self).weekday()
+ }
+ 
+ fn iso_week_number(&self, state: &mut Self::State) -> u8 {
+ if let Some(week) = state.iso_week { return week.get(); }
+ let _ = (*self).iso_year_week();
+ state.iso_year = MaybeUninit::new(iso_year);
+ state.iso_year_is_initialized = true;
+ state.iso_week = Some(unsafe { NonZero::new_unchecked(iso_week) });
+ iso_week
+ }
+ 
+ fn monday_based_week(&self, _: &mut Self::State) -> u8 {
+ (*self).monday_based_week()
+ }
+ 
+ fn sunday_based_week(&self, _: &mut Self::State) -> u8 {
+ (*self).sunday_based_week()
+ }
+ 
+ fn calendar_year(&self, _: &mut Self::State) -> i32 {
+ (*self).year()
+ }
+ 
+ fn iso_year(&self, state: &mut Self::State) -> i32 {
+ if state.iso_year_is_initialized { return unsafe { state.iso_year.assume_init() }; }
+ let _ = (*self).iso_year_week();
+ state.iso_year = MaybeUninit::new(iso_year);
+ state.iso_year_is_initialized = true;
+ state.iso_week = Some(unsafe { NonZero::new_unchecked(iso_week) });
+ iso_year
+ }
+ 
+}
+
+impl ComponentProvider for PrimitiveDateTime {
+ type State = DateState;
+ const SUPPLIES_DATE: bool = true;
+ const SUPPLIES_TIME: bool = true;
+ // [unsupported impl item]
+ // [unsupported impl item]
+}
+
+impl ComponentProvider for UtcOffset {
+ type State = ();
+ const SUPPLIES_OFFSET: bool = true;
+ fn offset_is_negative(&self, _: &mut Self::State) -> bool {
+ (*self).is_negative()
+ }
+ 
+ fn offset_is_utc(&self, _state: &mut Self::State) -> bool {
+ (*self).is_utc()
+ }
+ 
+ fn offset_hour(&self, _: &mut Self::State) -> i8 {
+ (*self).whole_hours()
+ }
+ 
+ fn offset_minute(&self, _: &mut Self::State) -> i8 {
+ (*self).minutes_past_hour()
+ }
+ 
+ fn offset_second(&self, _: &mut Self::State) -> i8 {
+ (*self).seconds_past_minute()
+ }
+ 
+}
+
+impl ComponentProvider for UtcDateTime {
+ type State = DateState;
+ const SUPPLIES_DATE: bool = true;
+ const SUPPLIES_TIME: bool = true;
+ const SUPPLIES_OFFSET: bool = true;
+ const SUPPLIES_TIMESTAMP: bool = true;
+ // [unsupported impl item]
+ // [unsupported impl item]
+ fn offset_is_negative(&self, _: &mut Self::State) -> bool {
+ false
+ }
+ 
+ fn offset_is_utc(&self, _state: &mut Self::State) -> bool {
+ true
+ }
+ 
+ fn offset_hour(&self, _: &mut Self::State) -> i8 {
+ 0
+ }
+ 
+ fn offset_minute(&self, _: &mut Self::State) -> i8 {
+ 0
+ }
+ 
+ fn offset_second(&self, _: &mut Self::State) -> i8 {
+ 0
+ }
+ 
+ fn unix_timestamp_seconds(&self, _: &mut Self::State) -> i64 {
+ (*self).unix_timestamp()
+ }
+ 
+ fn unix_timestamp_milliseconds(&self, state: &mut Self::State) -> i64 {
+ (ComponentProvider::unix_timestamp_nanoseconds(self, state) / 1_000_000).truncate()
+ }
+ 
+ fn unix_timestamp_microseconds(&self, state: &mut Self::State) -> i128 {
+ ComponentProvider::unix_timestamp_nanoseconds(self, state) / 1_000
+ }
+ 
+ fn unix_timestamp_nanoseconds(&self, _: &mut Self::State) -> i128 {
+ (*self).unix_timestamp_nanos()
+ }
+ 
+}
+
+impl ComponentProvider for OffsetDateTime {
+ type State = DateState;
+ const SUPPLIES_DATE: bool = true;
+ const SUPPLIES_TIME: bool = true;
+ const SUPPLIES_OFFSET: bool = true;
+ const SUPPLIES_TIMESTAMP: bool = true;
+ // [unsupported impl item]
+ // [unsupported impl item]
+ // [unsupported impl item]
+ fn unix_timestamp_seconds(&self, _: &mut Self::State) -> i64 {
+ (*self).unix_timestamp()
+ }
+ 
+ fn unix_timestamp_milliseconds(&self, _: &mut Self::State) -> i64 {
+ ((*self).unix_timestamp_nanos() / 1_000_000) as i64
+ }
+ 
+ fn unix_timestamp_microseconds(&self, _: &mut Self::State) -> i128 {
+ (*self).unix_timestamp_nanos() / 1_000
+ }
+ 
+ fn unix_timestamp_nanoseconds(&self, _: &mut Self::State) -> i128 {
+ (*self).unix_timestamp_nanos()
+ }
+ 
+}
+

@@ -1,0 +1,54 @@
+// Auto-converted from /tmp/df-time-0.3.47/time-0.3.47/src/lib.rs
+
+// [unsupported item]
+// [unsupported item]
+mod date;
+mod duration;
+pub mod error;
+pub mod ext;
+#[cfg(any(feature = "formatting", feature = "parsing"))]
+pub mod format_description;
+#[cfg(feature = "formatting")]
+pub mod formatting;
+mod hint;
+#[cfg(feature = "std")]
+mod instant;
+mod internal_macros;
+mod interop;
+#[cfg(feature = "macros")]
+pub mod macros;
+mod month;
+mod offset_date_time;
+#[cfg(feature = "parsing")]
+pub mod parsing;
+mod primitive_date_time;
+#[cfg(feature = "quickcheck")]
+mod quickcheck;
+#[cfg(feature = "rand08")]
+mod rand08;
+#[cfg(feature = "rand09")]
+mod rand09;
+#[cfg(feature = "serde")]
+pub mod serde;
+mod sys;
+#[cfg(test)]
+mod tests;
+mod time;
+mod utc_date_time;
+mod utc_offset;
+pub mod util;
+mod weekday;
+pub use time_core::convert;
+pub use crate::date::Date;
+pub use crate::duration::Duration;
+pub use crate::error::Error;
+#[doc(hidden)] #[cfg(feature = "std")] #[expect(deprecated)] pub use crate::instant::Instant;
+pub use crate::month::Month;
+pub use crate::offset_date_time::OffsetDateTime;
+pub use crate::primitive_date_time::PrimitiveDateTime;
+pub use crate::time::Time;
+pub use crate::utc_date_time::UtcDateTime;
+pub use crate::utc_offset::UtcOffset;
+pub use crate::weekday::Weekday;
+pub type Result<T> = core::result::Result<T, Error>;
+

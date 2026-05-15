@@ -1,0 +1,404 @@
+// Auto-converted from /tmp/df-time-0.3.47/time-0.3.47/src/format_description/modifier.rs
+
+use core::num::NonZero;
+#[doc = " Generate the provided code if and only if `pub` is present."] macro_rules ! if_pub { (pub $ (#[$ attr: meta]) *; $ ($ x: tt) *) => { $ (#[$ attr]) * #[doc = ""] #[doc = " This function exists since [`Default::default()`] cannot be used in a `const` context."] #[doc = " It may be removed once that becomes possible. As the [`Default`] trait is in the"] #[doc = " prelude, removing this function in the future will not cause any resolution failures for"] #[doc = " the overwhelming majority of users; only users who use `#![no_implicit_prelude]` will be"] #[doc = " affected. As such it will not be considered a breaking change."] $ ($ x) * }; ($ ($ _: tt) *) => { }; }
+#[doc = " Implement `Default` for the given type. This also generates an inherent implementation of a"] #[doc = " `default` method that is `const fn`, permitting the default value to be used in const contexts."] macro_rules ! impl_const_default { ($ ($ (#[$ doc: meta]) * $ (@$ pub: ident) ? $ type: ty => $ default: expr;) *) => { $ (impl $ type { if_pub ! { $ ($ pub) ? $ (#[$ doc]) *; #[inline] pub const fn default() -> Self { $ default } } } $ (#[$ doc]) * impl Default for $ type { #[inline] fn default() -> Self { $ default } }) * }; }
+impl_const_default ! { #[doc = " Creates a modifier that indicates the value is [padded with zeroes](Padding::Zero)."] @ pub Day => Self { padding: Padding::Zero }; #[doc = " Creates a modifier that indicates the value uses the"] #[doc = " [`Numerical`](Self::Numerical) representation."] MonthRepr => Self::Numerical; #[doc = " Creates an instance of this type that indicates the value uses the"] #[doc = " [`Numerical`](MonthRepr::Numerical) representation, is [padded with zeroes](Padding::Zero),"] #[doc = " and is case-sensitive when parsing."] @ pub Month => Self { padding: Padding::Zero, repr: MonthRepr::Numerical, case_sensitive: true }; #[doc = " Creates a modifier that indicates the value is [padded with zeroes](Padding::Zero)."] @ pub Ordinal => Self { padding: Padding::Zero }; #[doc = " Creates a modifier that indicates the value uses the [`Long`](Self::Long) representation."] WeekdayRepr => Self::Long; #[doc = " Creates a modifier that indicates the value uses the [`Long`](WeekdayRepr::Long)"] #[doc = " representation and is case-sensitive when parsing. If the representation is changed to a"] #[doc = " numerical one, the instance defaults to one-based indexing."] @ pub Weekday => Self { repr: WeekdayRepr::Long, one_indexed: true, case_sensitive: true }; #[doc = " Creates a modifier that indicates that the value uses the [`Iso`](Self::Iso) representation."] WeekNumberRepr => Self::Iso; #[doc = " Creates a modifier that indicates that the value is [padded with zeroes](Padding::Zero)"] #[doc = " and uses the [`Iso`](WeekNumberRepr::Iso) representation."] @ pub WeekNumber => Self { padding: Padding::Zero, repr: WeekNumberRepr::Iso }; #[doc = " Creates a modifier that indicates the value uses the [`Full`](Self::Full) representation."] YearRepr => Self::Full; #[doc = " Creates a modifier that indicates the value uses the [`Extended`](Self::Extended) range."] YearRange => Self::Extended; #[doc = " Creates a modifier that indicates the value uses the [`Full`](YearRepr::Full)"] #[doc = " representation, is [padded with zeroes](Padding::Zero), uses the Gregorian calendar as its"] #[doc = " base, and only includes the year's sign if necessary."] @ pub Year => Self { padding: Padding::Zero, repr: YearRepr::Full, range: YearRange::Extended, iso_week_based: false, sign_is_mandatory: false }; #[doc = " Creates a modifier that indicates the value is [padded with zeroes](Padding::Zero) and"] #[doc = " has the 24-hour representation."] @ pub Hour => Self { padding: Padding::Zero, is_12_hour_clock: false }; #[doc = " Creates a modifier that indicates the value is [padded with zeroes](Padding::Zero)."] @ pub Minute => Self { padding: Padding::Zero }; #[doc = " Creates a modifier that indicates the value uses the upper-case representation and is"] #[doc = " case-sensitive when parsing."] @ pub Period => Self { is_uppercase: true, case_sensitive: true }; #[doc = " Creates a modifier that indicates the value is [padded with zeroes](Padding::Zero)."] @ pub Second => Self { padding: Padding::Zero }; #[doc = " Creates a modifier that indicates the stringified value contains [one or more"] #[doc = " digits](Self::OneOrMore)."] SubsecondDigits => Self::OneOrMore; #[doc = " Creates a modifier that indicates the stringified value contains [one or more"] #[doc = " digits](SubsecondDigits::OneOrMore)."] @ pub Subsecond => Self { digits: SubsecondDigits::OneOrMore }; #[doc = " Creates a modifier that indicates the value only uses a sign for negative values and is"] #[doc = " [padded with zeroes](Padding::Zero)."] @ pub OffsetHour => Self { sign_is_mandatory: false, padding: Padding::Zero }; #[doc = " Creates a modifier that indicates the value is [padded with zeroes](Padding::Zero)."] @ pub OffsetMinute => Self { padding: Padding::Zero }; #[doc = " Creates a modifier that indicates the value is [padded with zeroes](Padding::Zero)."] @ pub OffsetSecond => Self { padding: Padding::Zero }; #[doc = " Creates a modifier that indicates the value is [padded with zeroes](Self::Zero)."] Padding => Self::Zero; #[doc = " Creates a modifier that indicates the value represents the [number of seconds](Self::Second)"] #[doc = " since the Unix epoch."] UnixTimestampPrecision => Self::Second; #[doc = " Creates a modifier that indicates the value represents the [number of"] #[doc = " seconds](UnixTimestampPrecision::Second) since the Unix epoch. The sign is not mandatory."] @ pub UnixTimestamp => Self { precision: UnixTimestampPrecision::Second, sign_is_mandatory: false }; #[doc = " Indicate that any trailing characters after the end of input are prohibited and will cause"] #[doc = " an error when used with `parse`."] TrailingInput => Self::Prohibit; #[doc = " Creates a modifier used to represent the end of input, not allowing any trailing input(i.e."] #[doc = " the input must be fully consumed)."] @ pub End => Self { trailing_input: TrailingInput::Prohibit }; }
+/// Day of the month.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Day {
+ pub padding: Padding,
+}
+
+impl Day {
+ pub fn with_padding(self, padding: Padding) -> Self {
+ Self { padding }
+ }
+ 
+}
+
+/// The representation of a month.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MonthRepr {
+ Numerical,
+ Long,
+ Short,
+}
+
+/// Month of the year.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Month {
+ pub padding: Padding,
+ pub repr: MonthRepr,
+ pub case_sensitive: bool,
+}
+
+impl Month {
+ pub fn with_padding(self, padding: Padding) -> Self {
+ Self { padding, .. self }
+ }
+ 
+ pub fn with_repr(self, repr: MonthRepr) -> Self {
+ Self { repr, .. self }
+ }
+ 
+ pub fn with_case_sensitive(self, case_sensitive: bool) -> Self {
+ Self { case_sensitive, .. self }
+ }
+ 
+}
+
+/// Ordinal day of the year.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Ordinal {
+ pub padding: Padding,
+}
+
+impl Ordinal {
+ pub fn with_padding(self, padding: Padding) -> Self {
+ Self { padding }
+ }
+ 
+}
+
+/// The representation used for the day of the week.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WeekdayRepr {
+ Short,
+ Long,
+ Sunday,
+ Monday,
+}
+
+/// Day of the week.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Weekday {
+ pub repr: WeekdayRepr,
+ pub one_indexed: bool,
+ pub case_sensitive: bool,
+}
+
+impl Weekday {
+ pub fn with_repr(self, repr: WeekdayRepr) -> Self {
+ Self { repr, .. self }
+ }
+ 
+ pub fn with_one_indexed(self, one_indexed: bool) -> Self {
+ Self { one_indexed, .. self }
+ }
+ 
+ pub fn with_case_sensitive(self, case_sensitive: bool) -> Self {
+ Self { case_sensitive, .. self }
+ }
+ 
+}
+
+/// The representation used for the week number.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WeekNumberRepr {
+ Iso,
+ Sunday,
+ Monday,
+}
+
+/// Week within the year.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WeekNumber {
+ pub padding: Padding,
+ pub repr: WeekNumberRepr,
+}
+
+impl WeekNumber {
+ pub fn with_padding(self, padding: Padding) -> Self {
+ Self { padding, .. self }
+ }
+ 
+ pub fn with_repr(self, repr: WeekNumberRepr) -> Self {
+ Self { repr, .. self }
+ }
+ 
+}
+
+/// The representation used for a year value.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum YearRepr {
+ Full,
+ Century,
+ LastTwo,
+}
+
+/// The range of years that are supported.
+/// 
+/// This modifier has no effect when the year repr is [`LastTwo`](YearRepr::LastTwo).
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum YearRange {
+ Standard,
+ Extended,
+}
+
+/// Year of the date.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Year {
+ pub padding: Padding,
+ pub repr: YearRepr,
+ pub range: YearRange,
+ pub iso_week_based: bool,
+ pub sign_is_mandatory: bool,
+}
+
+impl Year {
+ pub fn with_padding(self, padding: Padding) -> Self {
+ Self { padding, .. self }
+ }
+ 
+ pub fn with_repr(self, repr: YearRepr) -> Self {
+ Self { repr, .. self }
+ }
+ 
+ pub fn with_range(self, range: YearRange) -> Self {
+ Self { range, .. self }
+ }
+ 
+ pub fn with_iso_week_based(self, iso_week_based: bool) -> Self {
+ Self { iso_week_based, .. self }
+ }
+ 
+ pub fn with_sign_is_mandatory(self, sign_is_mandatory: bool) -> Self {
+ Self { sign_is_mandatory, .. self }
+ }
+ 
+}
+
+/// Hour of the day.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Hour {
+ pub padding: Padding,
+ pub is_12_hour_clock: bool,
+}
+
+impl Hour {
+ pub fn with_padding(self, padding: Padding) -> Self {
+ Self { padding, .. self }
+ }
+ 
+ pub fn with_is_12_hour_clock(self, is_12_hour_clock: bool) -> Self {
+ Self { is_12_hour_clock, .. self }
+ }
+ 
+}
+
+/// Minute within the hour.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Minute {
+ pub padding: Padding,
+}
+
+impl Minute {
+ pub fn with_padding(self, padding: Padding) -> Self {
+ Self { padding }
+ }
+ 
+}
+
+/// AM/PM part of the time.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Period {
+ pub is_uppercase: bool,
+ pub case_sensitive: bool,
+}
+
+impl Period {
+ pub fn with_is_uppercase(self, is_uppercase: bool) -> Self {
+ Self { is_uppercase, .. self }
+ }
+ 
+ pub fn with_case_sensitive(self, case_sensitive: bool) -> Self {
+ Self { case_sensitive, .. self }
+ }
+ 
+}
+
+/// Second within the minute.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Second {
+ pub padding: Padding,
+}
+
+impl Second {
+ pub fn with_padding(self, padding: Padding) -> Self {
+ Self { padding }
+ }
+ 
+}
+
+/// The number of digits present in a subsecond representation.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SubsecondDigits {
+ One,
+ Two,
+ Three,
+ Four,
+ Five,
+ Six,
+ Seven,
+ Eight,
+ Nine,
+ OneOrMore,
+}
+
+/// Subsecond within the second.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Subsecond {
+ pub digits: SubsecondDigits,
+}
+
+impl Subsecond {
+ pub fn with_digits(self, digits: SubsecondDigits) -> Self {
+ Self { digits }
+ }
+ 
+}
+
+/// Hour of the UTC offset.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OffsetHour {
+ pub sign_is_mandatory: bool,
+ pub padding: Padding,
+}
+
+impl OffsetHour {
+ pub fn with_sign_is_mandatory(self, sign_is_mandatory: bool) -> Self {
+ Self { sign_is_mandatory, .. self }
+ }
+ 
+ pub fn with_padding(self, padding: Padding) -> Self {
+ Self { padding, .. self }
+ }
+ 
+}
+
+/// Minute within the hour of the UTC offset.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OffsetMinute {
+ pub padding: Padding,
+}
+
+impl OffsetMinute {
+ pub fn with_padding(self, padding: Padding) -> Self {
+ Self { padding }
+ }
+ 
+}
+
+/// Second within the minute of the UTC offset.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OffsetSecond {
+ pub padding: Padding,
+}
+
+impl OffsetSecond {
+ pub fn with_padding(self, padding: Padding) -> Self {
+ Self { padding }
+ }
+ 
+}
+
+/// Type of padding to ensure a minimum width.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Padding {
+ Space,
+ Zero,
+ None,
+}
+
+/// Ignore some number of bytes.
+/// 
+/// This has no effect when formatting.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Ignore {
+ pub count: NonZero<u16>,
+}
+
+impl Ignore {
+ pub fn count(count: NonZero<u16>) -> Self {
+ Self { count }
+ }
+ 
+ pub fn with_count(self, count: NonZero<u16>) -> Self {
+ Self { count }
+ }
+ 
+}
+
+/// The precision of a Unix timestamp.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnixTimestampPrecision {
+ Second,
+ Millisecond,
+ Microsecond,
+ Nanosecond,
+}
+
+/// A Unix timestamp.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UnixTimestamp {
+ pub precision: UnixTimestampPrecision,
+ pub sign_is_mandatory: bool,
+}
+
+impl UnixTimestamp {
+ pub fn with_precision(self, precision: UnixTimestampPrecision) -> Self {
+ Self { precision, .. self }
+ }
+ 
+ pub fn with_sign_is_mandatory(self, sign_is_mandatory: bool) -> Self {
+ Self { sign_is_mandatory, .. self }
+ }
+ 
+}
+
+/// Whether trailing input after the declared end is permitted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrailingInput {
+ Prohibit,
+ Discard,
+}
+
+/// The end of input.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct End {
+ trailing_input: TrailingInput,
+}
+
+impl End {
+ pub fn with_trailing_input(self, trailing_input: TrailingInput) -> Self {
+ Self { trailing_input, .. self }
+ }
+ 
+}
+

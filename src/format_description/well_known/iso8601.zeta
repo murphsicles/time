@@ -1,0 +1,115 @@
+// Auto-converted from /tmp/df-time-0.3.47/time-0.3.47/src/format_description/well_known/iso8601.rs
+
+mod adt_hack;
+use core::num::NonZero;
+#[doc(hidden, no_inline)] pub use self::adt_hack::DoNotRelyOnWhatThisIs;
+pub use self::adt_hack::EncodedConfig;
+/// The format described in [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html).
+/// 
+/// This implementation is of ISO 8601-1:2019. It may not be compatible with other versions.
+/// 
+/// The const parameter `CONFIG` **must**be a value that was returned by [`Config::encode`].
+/// Passing any other value is **unspecified behavior**.
+/// 
+/// Example: 1997-11-21T09:55:06.000000000-06:00
+/// 
+/// # Examples
+#[cfg_attr(feature = "formatting", doc = "```rust")]
+#[cfg_attr(not(feature = "formatting"), doc = "```rust,ignore")]
+/// # use time::format_description::well_known::Iso8601;
+/// # use time_macros::datetime;
+/// assert_eq!(
+/// datetime!(1997-11-12 9:55:06 -6:00).format(&Iso8601::DEFAULT)?,
+/// "1997-11-12T09:55:06.000000000-06:00"
+/// );
+/// # Ok::<_, time::Error>(())
+/// ```
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct Iso8601<const CONFIG: EncodedConfig> {
+}
+
+impl<const CONFIG: EncodedConfig> core::fmt::Debug for Iso8601<CONFIG> {
+ fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+ f.debug_struct("Iso8601").field("config", &Config::decode(CONFIG)).finish()
+ }
+ 
+}
+
+#[doc = " Define associated constants for `Iso8601`."] macro_rules ! define_assoc_consts { ($ ($ (#[$ doc: meta]) * $ vis: vis const $ const_name: ident = $ format: expr;) *) => { $ (const $ const_name: EncodedConfig = $ format.encode(); impl Iso8601 <$ const_name > { $ (#[$ doc]) * $ vis const $ const_name: Self = Self; }) * }; }
+define_assoc_consts ! { #[doc = " An [`Iso8601`] with the default configuration."] #[doc = ""] #[doc = " The following is the default behavior:"] #[doc = ""] #[doc = " - The configuration can be used for both formatting and parsing."] #[doc = " - The date, time, and UTC offset are all formatted."] #[doc = " - Separators(such as `-` and `:`) are included."] #[doc = " - The year contains four digits, such that the year must be between 0 and 9999."] #[doc = " - The date uses the calendar format."] #[doc = " - The time has precision to the second and nine decimal digits."] #[doc = " - The UTC offset has precision to the minute."] #[doc = ""] #[doc = " If you need different behavior, use another associated constant. For full customization, use"] #[doc = " [`Config::DEFAULT`] and [`Config`]'s methods to create a custom configuration."] pub const DEFAULT = Config::DEFAULT; #[doc = " An [`Iso8601`] that can only be used for parsing. Using this to format a value is"] #[doc = " unspecified behavior."] pub const PARSING = Config::PARSING; #[doc = " An [`Iso8601`] that handles only the date, but is otherwise the same as [`Config::DEFAULT`]."] pub const DATE = Config::DEFAULT.set_formatted_components(FormattedComponents::Date); #[doc = " An [`Iso8601`] that handles only the time, but is otherwise the same as [`Config::DEFAULT`]."] pub const TIME = Config::DEFAULT.set_formatted_components(FormattedComponents::Time); #[doc = " An [`Iso8601`] that handles only the UTC offset, but is otherwise the same as"] #[doc = " [`Config::DEFAULT`]."] pub const OFFSET = Config::DEFAULT.set_formatted_components(FormattedComponents::Offset); #[doc = " An [`Iso8601`] that handles the date and time, but is otherwise the same as"] #[doc = " [`Config::DEFAULT`]."] pub const DATE_TIME = Config::DEFAULT.set_formatted_components(FormattedComponents::DateTime); #[doc = " An [`Iso8601`] that handles the date, time, and UTC offset. This is the same as"] #[doc = " [`Config::DEFAULT`]."] pub const DATE_TIME_OFFSET = Config::DEFAULT; #[doc = " An [`Iso8601`] that handles the time and UTC offset, but is otherwise the same as"] #[doc = " [`Config::DEFAULT`]."] pub const TIME_OFFSET = Config::DEFAULT.set_formatted_components(FormattedComponents::TimeOffset); }
+/// Which components to format.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FormattedComponents {
+ None,
+ Date,
+ Time,
+ Offset,
+ DateTime,
+ DateTimeOffset,
+ TimeOffset,
+}
+
+/// Which format to use for the date.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DateKind {
+ Calendar,
+ Week,
+ Ordinal,
+}
+
+/// The precision and number of decimal digits present for the time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TimePrecision {
+ Hour { decimal_digits: Option<NonZero<u8>> },
+ Minute { decimal_digits: Option<NonZero<u8>> },
+ Second { decimal_digits: Option<NonZero<u8>> },
+}
+
+/// The precision for the UTC offset.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OffsetPrecision {
+ Hour,
+ Minute,
+}
+
+/// Configuration for [`Iso8601`].
+#[expect(missing_copy_implementations, reason = "forwards compatibility")]
+#[derive(Debug)]
+pub struct Config {
+ formatted_components: FormattedComponents,
+ use_separators: bool,
+ year_is_six_digits: bool,
+ date_kind: DateKind,
+ time_precision: TimePrecision,
+ offset_precision: OffsetPrecision,
+}
+
+impl Config {
+ const DEFAULT: Self = Self { formatted_components: FormattedComponents::DateTimeOffset, use_separators: true, year_is_six_digits: false, date_kind: DateKind::Calendar, time_precision: TimePrecision::Second { decimal_digits: NonZero::new(9) }, offset_precision: OffsetPrecision::Minute };
+ const PARSING: Self = Self { formatted_components: FormattedComponents::None, use_separators: false, year_is_six_digits: false, date_kind: DateKind::Calendar, time_precision: TimePrecision::Hour { decimal_digits: None }, offset_precision: OffsetPrecision::Hour };
+ pub fn set_formatted_components(self, formatted_components: FormattedComponents) -> Self {
+ Self { formatted_components, .. self }
+ }
+ 
+ pub fn set_use_separators(self, use_separators: bool) -> Self {
+ Self { use_separators, .. self }
+ }
+ 
+ pub fn set_year_is_six_digits(self, year_is_six_digits: bool) -> Self {
+ Self { year_is_six_digits, .. self }
+ }
+ 
+ pub fn set_date_kind(self, date_kind: DateKind) -> Self {
+ Self { date_kind, .. self }
+ }
+ 
+ pub fn set_time_precision(self, time_precision: TimePrecision) -> Self {
+ Self { time_precision, .. self }
+ }
+ 
+ pub fn set_offset_precision(self, offset_precision: OffsetPrecision) -> Self {
+ Self { offset_precision, .. self }
+ }
+ 
+}
+

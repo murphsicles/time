@@ -1,0 +1,9 @@
+// Auto-converted from /tmp/df-time-0.3.47/time-0.3.47/src/sys/local_offset_at/imp.rs
+
+use crate::{ OffsetDateTime, UtcOffset };
+#[expect(clippy::missing_docs_in_private_items)]
+#[inline]
+fn local_offset_at(_datetime: OffsetDateTime) -> Option<UtcOffset> {
+ None
+}
+

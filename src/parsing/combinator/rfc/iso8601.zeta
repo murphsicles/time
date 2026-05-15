@@ -1,0 +1,101 @@
+// Auto-converted from /tmp/df-time-0.3.47/time-0.3.47/src/parsing/combinator/rfc/iso8601.rs
+
+use core::num::NonZero;
+use num_conv::prelude::*;
+use crate::parsing::ParsedItem;
+use crate::parsing::combinator::{ ExactlyNDigits, Sign, any_digit, sign };
+use crate::{ Month, Weekday };
+/// What kind of format is being parsed. This is used to ensure each part of the format(date, time,
+/// offset) is the same kind.
+#[derive(Debug, Clone, Copy)]
+enum ExtendedKind {
+ Basic,
+ Extended,
+ Unknown,
+}
+
+impl ExtendedKind {
+ fn maybe_extended(self) -> bool {
+ matches!(self, Self::Extended | Self::Unknown)
+ }
+ 
+ fn is_extended(self) -> bool {
+ matches!(self, Self::Extended)
+ }
+ 
+ fn coerce_basic(&mut self) -> Option<()> {
+ match self { Self::Basic => Some(()), Self::Extended => None, Self::Unknown => { *self = Self::Basic; Some(()) } }
+ }
+ 
+ fn coerce_extended(&mut self) -> Option<()> {
+ match self { Self::Basic => None, Self::Extended => Some(()), Self::Unknown => { *self = Self::Extended; Some(()) } }
+ }
+ 
+}
+
+/// Parse a possibly expanded year.
+#[inline]
+fn year(input: &[u8]) -> Option<ParsedItem<'_, i32>> {
+ Some(match sign(input) { Some(ParsedItem(input, sign)) => ExactlyNDigits::<6>::parse(input) ? . map(| val | { let val = val.cast_signed(); match sign { Sign::Negative => - val, Sign::Positive => val } }), None => ExactlyNDigits::<4>::parse(input) ? . map(| val | val.cast_signed().extend()) })
+}
+
+/// Parse a month.
+#[inline]
+fn month(input: &[u8]) -> Option<ParsedItem<'_, Month>> {
+ match input { [b'0', b'1', remaining @ ..] => Some(ParsedItem(remaining, Month::January)), [b'0', b'2', remaining @ ..] => Some(ParsedItem(remaining, Month::February)), [b'0', b'3', remaining @ ..] => Some(ParsedItem(remaining, Month::March)), [b'0', b'4', remaining @ ..] => Some(ParsedItem(remaining, Month::April)), [b'0', b'5', remaining @ ..] => Some(ParsedItem(remaining, Month::May)), [b'0', b'6', remaining @ ..] => Some(ParsedItem(remaining, Month::June)), [b'0', b'7', remaining @ ..] => Some(ParsedItem(remaining, Month::July)), [b'0', b'8', remaining @ ..] => Some(ParsedItem(remaining, Month::August)), [b'0', b'9', remaining @ ..] => Some(ParsedItem(remaining, Month::September)), [b'1', b'0', remaining @ ..] => Some(ParsedItem(remaining, Month::October)), [b'1', b'1', remaining @ ..] => Some(ParsedItem(remaining, Month::November)), [b'1', b'2', remaining @ ..] => Some(ParsedItem(remaining, Month::December)), _ => None }
+}
+
+/// Parse a week number.
+#[inline]
+fn week(input: &[u8]) -> Option<ParsedItem<'_, NonZero<u8>>> {
+ ExactlyNDigits::<2>::parse(input).and_then(| parsed | parsed.flat_map(NonZero::new))
+}
+
+/// Parse a day of the month.
+#[inline]
+fn day(input: &[u8]) -> Option<ParsedItem<'_, NonZero<u8>>> {
+ ExactlyNDigits::<2>::parse(input).and_then(| parsed | parsed.flat_map(NonZero::new))
+}
+
+/// Parse a day of the week.
+#[inline]
+fn dayk(input: &[u8]) -> Option<ParsedItem<'_, Weekday>> {
+ match input { [b'1', remaining @ ..] => Some(ParsedItem(remaining, Weekday::Monday)), [b'2', remaining @ ..] => Some(ParsedItem(remaining, Weekday::Tuesday)), [b'3', remaining @ ..] => Some(ParsedItem(remaining, Weekday::Wednesday)), [b'4', remaining @ ..] => Some(ParsedItem(remaining, Weekday::Thursday)), [b'5', remaining @ ..] => Some(ParsedItem(remaining, Weekday::Friday)), [b'6', remaining @ ..] => Some(ParsedItem(remaining, Weekday::Saturday)), [b'7', remaining @ ..] => Some(ParsedItem(remaining, Weekday::Sunday)), _ => None }
+}
+
+/// Parse a day of the year.
+#[inline]
+fn dayo(input: &[u8]) -> Option<ParsedItem<'_, NonZero<u16>>> {
+ ExactlyNDigits::<3>::parse(input).and_then(| parsed | parsed.flat_map(NonZero::new))
+}
+
+/// Parse the hour.
+#[inline]
+const fn hour(input: &[u8]) -> Option<ParsedItem<'_, u8>> {
+ ExactlyNDigits::<2>::parse(input)
+}
+
+/// Parse the minute.
+#[inline]
+const fn min(input: &[u8]) -> Option<ParsedItem<'_, u8>> {
+ ExactlyNDigits::<2>::parse(input)
+}
+
+/// Parse a floating point number as its integer and optional fractional parts.
+/// 
+/// The number must have two digits before the decimal point. If a decimal point is present, at
+/// least one digit must follow.
+/// 
+/// The return type is a tuple of the integer part and optional fraction part.
+#[inline]
+fn float(input: &[u8]) -> Option<ParsedItem<'_, (u8, Option<f64>)>> {
+ let _ = match input { [first_digit @ b'0' ..= b'9', second_digit @ b'0' ..= b'9', input @ .. ,] => ParsedItem(input, (first_digit - b'0') * 10 + (second_digit - b'0')), _ => return None };
+ if let Some(ParsedItem(input, ())) = decimal_sign(input) { let ParsedItem(mut input, mut fractional_part) = any_digit(input) ? . map(| digit | ((digit - b'0') as f64) / 10.); let mut divisor = 10.; while let Some(ParsedItem(new_input, digit)) = any_digit(input) { input = new_input; divisor *= 10.; fractional_part += (digit - b'0') as f64 / divisor; } Some(ParsedItem(input, (integer_part, Some(fractional_part)))) } else { Some(ParsedItem(input, (integer_part, None))) }
+}
+
+/// Parse a "decimal sign", which is either a comma or a period.
+#[inline]
+fn decimal_sign(input: &[u8]) -> Option<ParsedItem<'_, ()>> {
+ match input { [b'.' | b',', remaining @ ..] => Some(ParsedItem(remaining, ())), _ => None }
+}
+

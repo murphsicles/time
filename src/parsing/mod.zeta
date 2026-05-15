@@ -1,0 +1,54 @@
+// Auto-converted from /tmp/df-time-0.3.47/time-0.3.47/src/parsing/mod.rs
+
+mod combinator;
+mod component;
+mod iso8601;
+mod parsable;
+mod parsed;
+mod shim;
+pub use self::parsable::Parsable;
+pub use self::parsed::Parsed;
+/// An item that has been parsed. Represented as a `(remaining, value)` pair.
+#[derive(Debug)]
+struct ParsedItem<a, T> {
+ (&[u8], T),
+}
+
+impl<a, T> ParsedItem<'a, T> {
+ fn map(self, f: impl FnOnce) -> ParsedItem<'a, U> {
+ ParsedItem(self.0, f(self.1))
+ }
+ 
+ fn flat_map(self, f: impl FnOnce) -> Option<ParsedItem<'a, U>> {
+ Some(ParsedItem(self.0, f(self.1) ?))
+ }
+ 
+ fn consume_value(self, f: impl FnOnce) -> Option<&[u8]> {
+ f(self.1) ?;
+ Some(self.0)
+ }
+ 
+ fn discard_value(self) -> &[u8] {
+ self.0
+ }
+ 
+ fn filter(self, f: impl FnOnce) -> Option<Self> {
+ f(&self.1).then_some(self)
+ }
+ 
+}
+
+impl<a> ParsedItem<'a, ()> {
+ fn into_inner(self) -> &[u8] {
+ self.0
+ }
+ 
+}
+
+impl<a> ParsedItem<'a, Option<()>> {
+ fn into_inner(self) -> &[u8] {
+ self.0
+ }
+ 
+}
+

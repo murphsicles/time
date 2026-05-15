@@ -1,0 +1,9 @@
+// Auto-converted from /tmp/df-time-0.3.47/time-0.3.47/src/parsing/combinator/rfc/rfc2234.rs
+
+use crate::parsing::ParsedItem;
+/// Consume exactly one space or tab.
+#[inline]
+const fn wsp(input: &[u8]) -> Option<ParsedItem<'_, ()>> {
+ match input { [b' ' | b'\t', rest @ ..] => Some(ParsedItem(rest, ())), _ => None }
+}
+
